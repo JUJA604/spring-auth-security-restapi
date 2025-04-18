@@ -35,7 +35,7 @@ public class SecurityConfig {
             // 인가(Authorization) 설정 시작
             .authorizeHttpRequests(auth -> auth
                 // /api/auth/** 와 /api/members 경로는 인증 없이 접근 허용
-                .requestMatchers("/api/signup", "/api/login", "/api/auth/**", "/api/members").permitAll()
+                .requestMatchers("/api/signup", "/api/auth/**", "/api/members").permitAll()
                 // 그 외 모든 요청은 인증 필요
                 .anyRequest().authenticated()
             )
