@@ -9,6 +9,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import project.auth.security.entryPoint.CustomAuthenticationEntryPoint;
 import project.auth.security.security.JwtAuthenticationFilter;
 
 @Configuration
@@ -25,14 +26,31 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             // CSRF 비활성화
-            .csrf(csrf -> csrf.disable())
+            .csrf(csrf -> csrf
+                    .disable()
+            )
+
             // HTTP Basic 인증 비활성화
-            .httpBasic(httpBasic -> httpBasic.disable())
+            .httpBasic(httpBasic -> httpBasic
+                    .disable()
+            )
+
             // 폼 로그인 비활성화
-            .formLogin(formLogin -> formLogin.disable())
+            .formLogin(formLogin -> formLogin
+                    .disable()
+            )
+
             // 세션 관리 설정: STATELESS
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            // 인가(Authorization) 설정 시작
+            .sessionManagement(session -> session
+                    .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+            )
+
+            // 예외 처리 설정
+            .exceptionHandling(exception -> exception
+                    .authenticationEntryPoint(new CustomAuthenticationEntryPoint())
+            )
+
+            // 인가(Authorization) 설정
             .authorizeHttpRequests(auth -> auth
                 // /api/auth/** 와 /api/members 경로는 인증 없이 접근 허용
                 .requestMatchers("/api/signup", "/api/auth/**", "/api/members").permitAll()

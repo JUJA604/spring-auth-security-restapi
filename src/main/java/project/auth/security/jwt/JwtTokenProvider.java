@@ -8,18 +8,24 @@ import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
 
 @Component
 public class JwtTokenProvider {
+    // Jwt를 생성할 때 사용되는 secretKey
+    private final long expiration;
+    private final Key key;
 
-    // Jwt의 유효기간을 long 타입으로 가지는 필드
-    @Value("${jwt.expiration}")
-    private long expiration;
-
-    // Jwt의 비밀 키를 가지는 필드
-    private final Key key = Keys.secretKeyFor(SignatureAlgorithm.HS256);
+    // 생성자를 통해 key 값 주입
+    public JwtTokenProvider(
+            @Value("${jwt.secretKey}") String secretKey,
+            @Value("${jwt.expiration}") long expiration
+    ) {
+        this.key = Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));
+        this.expiration = expiration;
+    }
 
     // Jwt 토큰 생성 메소드
     public String generateToken(String email, long expiration) {
@@ -54,14 +60,10 @@ public class JwtTokenProvider {
 
     // 토큰이 유효한지 검증하는 메소드
     public boolean validationToken(String token) {
-        try{
-            Jwts.parserBuilder()
-                    .setSigningKey(key)
-                    .build()
-                    .parseClaimsJws(token);
-            return true;
-        } catch (JwtException | IllegalArgumentException e) {
-            return false;
-        }
+        Jwts.parserBuilder()
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(token);
+        return true;
     }
 }

@@ -11,8 +11,6 @@ import project.auth.security.dto.token.RefreshTokenRequest;
 import project.auth.security.dto.token.TokenResponse;
 import project.auth.security.service.AuthService;
 
-import java.util.Map;
-
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -20,14 +18,14 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/login")
-    public ResponseEntity<Map<String, String>> login(@RequestBody LoginRequest request) {
-        Map<String, String> tokens = authService.login(request);
+    public ResponseEntity<TokenResponse> login(@RequestBody LoginRequest request) {
+        TokenResponse tokens = authService.login(request);
         return ResponseEntity.ok(tokens);
     }
 
     @PostMapping("/refresh")
     public ResponseEntity<TokenResponse> refresh(@RequestBody RefreshTokenRequest request) {
-        TokenResponse tokens = authService.refreshAccessToken(request);
+        TokenResponse tokens = authService.refreshAccessToken(request.getRefreshToken());
         return ResponseEntity.ok(tokens);
     }
 }

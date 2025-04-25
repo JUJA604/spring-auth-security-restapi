@@ -6,9 +6,9 @@ import project.auth.security.domain.Member;
 
 @Getter
 public class MemberResponse {
-    private Long id;
-    private String email;
-    private String name;
+    private final Long id;
+    private final String email;
+    private final String name;
 
     @Builder
     public MemberResponse(Long id, String email, String name) {
