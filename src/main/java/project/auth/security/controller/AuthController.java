@@ -1,5 +1,6 @@
 package project.auth.security.controller;
 
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -24,8 +25,8 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<TokenResponse> refresh(@RequestBody RefreshTokenRequest request) {
-        TokenResponse tokens = authService.refreshAccessToken(request.getRefreshToken());
+    public ResponseEntity<TokenResponse> refresh(HttpServletRequest request, @RequestBody RefreshTokenRequest refreshToken) {
+        TokenResponse tokens = authService.refreshAccessToken(request, refreshToken.getRefreshToken());
         return ResponseEntity.ok(tokens);
     }
 }

@@ -1,33 +1,44 @@
 package project.auth.security.entryPoint;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.NoArgsConstructor;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
-
+import project.auth.security.exceptionHandle.dto.ErrorResponse;
+import project.auth.security.exceptionHandle.enums.ErrorCode;
 
 import java.io.IOException;
 
 @Component
+@RequiredArgsConstructor
 public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint {
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    @Autowired
+    private final ObjectMapper objectMapper;
 
     @Override
-    public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException authException)
-            throws IOException {
-        System.out.println(request.getHeader("authorization"));
-        System.out.println("에러 발생");
-//        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-//        response.setCharacterEncoding("UTF-8");
-//        response.setContentType("application/json");
-//        ErrorResponse errorResponse = ErrorResponse.builder()
-//                .status(401)
-//                .errorCode("AUTH-EXPIRED")
-//                .message("토큰이 만료되었습니다.")
-//                .build();
-//        response.getWriter().write(objectMapper.writeValueAsString(errorResponse));
+    public void commence(HttpServletRequest request,
+                         HttpServletResponse response,
+                         AuthenticationException authException) throws IOException {
+        response.setContentType("application/json;charset=UTF-8");
 
+        ErrorResponse errorResponse;
+
+        ErrorCode errorCode = (ErrorCode) request.getAttribute("errorCode");
+
+        if (errorCode.isClientError()) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            errorResponse = new ErrorResponse(errorCode);
+        } else {
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            errorResponse = new ErrorResponse(ErrorCode.TOKEN_UNKNOWN);
+        }
+
+        response.getWriter().write(objectMapper.writeValueAsString(errorResponse));
     }
 }

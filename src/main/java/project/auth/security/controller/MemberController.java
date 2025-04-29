@@ -16,7 +16,7 @@ import project.auth.security.service.MemberService;
 public class MemberController {
     private final MemberService memberService;
 
-    @GetMapping("/my-info")
+    @GetMapping("/info")
     public ResponseEntity<MemberResponse> getMyInfo(@AuthenticationPrincipal Member member) {
         MemberResponse memberResponse = MemberResponse.from(member);
         return ResponseEntity.ok(memberResponse);
