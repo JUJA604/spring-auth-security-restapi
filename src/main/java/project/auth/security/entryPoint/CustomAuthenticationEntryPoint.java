@@ -18,7 +18,6 @@ import java.io.IOException;
 @Component
 @RequiredArgsConstructor
 public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint {
-    @Autowired
     private final ObjectMapper objectMapper;
 
     @Override
@@ -31,12 +30,12 @@ public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint 
 
         ErrorCode errorCode = (ErrorCode) request.getAttribute("errorCode");
 
-        if (errorCode.isClientError()) {
+        if (errorCode == null || errorCode.isServerError()) {
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            errorResponse = new ErrorResponse(ErrorCode.UNKNOWN);
+        } else {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             errorResponse = new ErrorResponse(errorCode);
-        } else {
-            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            errorResponse = new ErrorResponse(ErrorCode.TOKEN_UNKNOWN);
         }
 
         response.getWriter().write(objectMapper.writeValueAsString(errorResponse));

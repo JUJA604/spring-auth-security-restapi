@@ -1,16 +1,18 @@
 package project.auth.security.jwt;
 
-import io.jsonwebtoken.JwtException;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import project.auth.security.exceptionHandle.enums.ErrorCode;
 
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
+
+import static project.auth.security.util.ExceptionUtils.setErrorCode;
 
 @Component
 public class JwtTokenProvider {
@@ -58,13 +60,21 @@ public class JwtTokenProvider {
                 .getSubject();
     }
 
-    // 토큰이 유효한지 검증하는 메소드
-    public boolean validationToken(String token) {
+    // AccessToken이 유효한지 검증하는 메소드
+    public void validationAccess(String token) {
         Jwts.parserBuilder()
                 .setSigningKey(key)
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
-        return true;
+    }
+
+    // RefreshToken이 유효한지 검증하는 메소드
+    public void validationRefresh(String token) {
+        Jwts.parserBuilder()
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
     }
 }

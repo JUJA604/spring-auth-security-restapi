@@ -1,5 +1,6 @@
 package project.auth.security.service;
 
+import io.jsonwebtoken.*;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -10,11 +11,15 @@ import project.auth.security.domain.RefreshToken;
 import project.auth.security.dto.token.TokenResponse;
 import project.auth.security.exceptionHandle.enums.ErrorCode;
 import project.auth.security.exceptionHandle.exception.auth.MismatchAuthException;
+import project.auth.security.exceptionHandle.exception.jwt.JwtAuthenticationException;
 import project.auth.security.jwt.JwtTokenProvider;
 import project.auth.security.repository.MemberRepository;
 import project.auth.security.repository.RefreshTokenRepository;
 
+import java.util.Optional;
+
 import static project.auth.security.util.ExceptionUtils.setErrorCode;
+import static project.auth.security.util.ExceptionUtils.setRefreshErrorCode;
 
 @Service
 @RequiredArgsConstructor
@@ -34,6 +39,7 @@ public class AuthService {
             throw new MismatchAuthException();
         }
 
+        // 3. AccessToken, RefreshToken 발급 후, DB에 RefreshToken 데이터 저장
         String accessToken = jwtTokenProvider.generateAccessToken(request.getEmail());
         String refreshToken = jwtTokenProvider.generateRefreshToken(request.getEmail());
 
@@ -51,32 +57,48 @@ public class AuthService {
     }
 
     // refreshToken을 통해서 AccessToken을 재발급하는 메소드
-    public TokenResponse refreshAccessToken(HttpServletRequest request, String refreshToken) {
-        // 1. 유효성 검증
-        if(!jwtTokenProvider.validationToken(refreshToken)) {
-            throw new IllegalArgumentException("유효하지 않은 Refresh Token 입니다.");
+    public TokenResponse refreshAccessToken(String refreshToken) {
+        try {
+            // 1. 유효성 검증
+            jwtTokenProvider.validationRefresh(refreshToken);
+
+            // 2. refreshToken을 통해 email 추출
+            String email = jwtTokenProvider.getEmail(refreshToken);
+
+            // 3. DB에 저장된 refreshToken 조회
+            // { email : "string@string.com", refreshToken: "213213" } - 이 형식으로 저장되어있음
+            RefreshToken savedToken = refreshTokenRepository.findById(email)
+                    .orElseThrow(JwtAuthenticationException::new);
+
+            // 4. 유저가 보낸 RefreshToken과 DB에 저장된 RefreshToken을 비교하여 일치 검증
+            if(!savedToken.getToken().equals(refreshToken)) {
+                throw new JwtAuthenticationException();
+            }
+
+            // 5. 새로운 Token 발급
+            String newAccessToken = jwtTokenProvider.generateAccessToken(email);
+            String newRefreshToken = jwtTokenProvider.generateRefreshToken(email);
+
+            // 6. DB에 새로 발급 받은 토큰 데이터 갱신
+            refreshTokenRepository.save(
+                    RefreshToken.builder()
+                            .email(email)
+                            .token(newRefreshToken)
+                            .build());
+
+            // 7. TokenResponse 형식으로 반환
+            return TokenResponse.builder()
+                    .accessToken(newAccessToken)
+                    .refreshToken(newRefreshToken)
+                    .build();
+        }catch(JwtException | JwtAuthenticationException e) {
+            System.out.println("RefreshToken is Invalid"); // log
+            setRefreshErrorCode();
+            throw e;
+        }catch (Exception e) {
+            System.out.println("Unknown Exception"); // log
+            setErrorCode(ErrorCode.UNKNOWN);
+            throw e;
         }
-
-        // 2. refreshToken을 통해 email 추출
-        String email = jwtTokenProvider.getEmail(refreshToken);
-
-        // 3. DB에 저장된 refreshToken 조회
-        // { email : "string@string.com", refreshToken: "213213" } - 이 형식으로 저장되어있음
-        RefreshToken savedToken  = refreshTokenRepository.findById(email)
-                .orElseThrow(() -> new IllegalArgumentException("저장된 Refresh Token이 없습니다."));
-
-        // 4. 유저가 보낸 RefreshToken과 DB에 저장된 RefreshToken을 비교하여 일치 검증
-        if(!savedToken.getToken().equals(refreshToken)) {
-            throw new IllegalArgumentException("Refresh Token이 불일치 합니다.");
-        }
-
-        // 5. 새로운 AccessToken 발급
-        String newAccessToken = jwtTokenProvider.generateAccessToken(email);
-
-        // 6. TokenResponse 형식으로 반환
-        return TokenResponse.builder()
-                .accessToken(newAccessToken)
-                .refreshToken(refreshToken)
-                .build();
     }
 }

@@ -1,9 +1,6 @@
 package project.auth.security.security;
 
-import io.jsonwebtoken.ExpiredJwtException;
-import io.jsonwebtoken.MalformedJwtException;
-import io.jsonwebtoken.UnsupportedJwtException;
-import io.jsonwebtoken.SignatureException;
+import io.jsonwebtoken.*;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -14,10 +11,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import project.auth.security.details.MemberDetails;
 import project.auth.security.domain.Member;
 import project.auth.security.exceptionHandle.enums.ErrorCode;
 import project.auth.security.exceptionHandle.exception.jwt.JwtAuthenticationException;
-import project.auth.security.exceptionHandle.exception.jwt.NotFoundJwtMemberException;
 import project.auth.security.jwt.JwtTokenProvider;
 import project.auth.security.repository.MemberRepository;
 
@@ -50,7 +47,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         return Arrays.stream(excludePath).anyMatch(path::startsWith);
     }
 
-    //
     @Override
     protected void doFilterInternal(
             HttpServletRequest request,
@@ -65,16 +61,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if(authHeader == null || authHeader.isEmpty()) {
             // log - 토큰이 비어있는 요청
             System.out.println("Token is Null");
-            setErrorCode(request, ErrorCode.TOKEN_EMPTY);
-            throw new JwtAuthenticationException(ErrorCode.TOKEN_EMPTY);
+            setErrorCode(ErrorCode.TOKEN_EMPTY);
+            throw new JwtAuthenticationException();
         }
 
         // 토큰이 Bearer로 시작하는지 검증
         if(!authHeader.startsWith("Bearer ")) {
             // log - 형식에 맞지 않는 토큰을 통한 요청
             System.out.println("Token is Invalid");
-            setErrorCode(request, ErrorCode.TOKEN_INVALID);
-            throw new JwtAuthenticationException(ErrorCode.TOKEN_INVALID);
+            setErrorCode(ErrorCode.TOKEN_INVALID);
+            throw new JwtAuthenticationException();
         }
 
         // Bearer를 제외한 Jwt 부분만 할당
@@ -82,60 +78,40 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try {
             // tokenProvider를 이용하여 토큰의 유효성 검증
-            if(jwtTokenProvider.validationToken(token)) {
-                // 토큰 값에서 email 추출
-                String email = jwtTokenProvider.getEmail(token);
-                // 추출한 email로 DB 내에 있는 사용자 조회
-                Member member = memberRepository.findByEmail(email)
-                        .orElseThrow(NotFoundJwtMemberException::new);
+            jwtTokenProvider.validationAccess(token);
 
-                // 인증 객체 생성
-                // 사용자 객체, 비밀번호 (Jwt 에서는 null), 권한 정보 (ROLE_USER 등)
-                // 위의 데이터를 총합하여 담아두는 객체
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(member, null, null);
+            // 토큰 값에서 email 추출
+            String email = jwtTokenProvider.getEmail(token);
+            // 추출한 email로 DB 내에 있는 사용자 조회
+            Member member = memberRepository.findByEmail(email)
+                    .orElseThrow(JwtAuthenticationException::new);
 
-                // 사용자의 IP, 사용자의 세션 ID를 보유한 객체
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+            // 인증 객체 생성
+            MemberDetails memberDetails = new MemberDetails(member);
 
-                // Jwt 검증 로직 수행 완료 - 인증 성공
-                SecurityContextHolder.getContext().setAuthentication(authentication);
-            }
-        }
+            // 사용자 객체, 비밀번호 (Jwt 에서는 null), 권한 정보 (ROLE_USER 등)
+            // 위의 데이터를 총합하여 담아두는 객체
+            UsernamePasswordAuthenticationToken authentication =
+                    new UsernamePasswordAuthenticationToken(memberDetails, null, memberDetails.getAuthorities());
 
-        catch (NotFoundJwtMemberException e) {
-            System.out.println("Member Not Found"); // log
-            setErrorCode(request, ErrorCode.TOKEN_INVALID);
-        }
+            // 사용자의 IP, 사용자의 세션 ID를 보유한 객체
+            authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
-        catch (ExpiredJwtException e) {
+            // Jwt 검증 로직 수행 완료 - 인증 성공
+            // 해당 요청 처리 중에서 사용될 사용자 정보 등록
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+        }catch (ExpiredJwtException e) {
             System.out.println("Token is Expired"); // log
-            setErrorCode(request, ErrorCode.TOKEN_EXPIRED);
-        }
-
-        catch(SignatureException e) {
-            System.out.println("Token Signature is Invalid"); // log
-            setErrorCode(request, ErrorCode.TOKEN_INVALID);
-        }
-
-        catch (MalformedJwtException e) {
-            System.out.println("Token is Malformed"); // log
-            setErrorCode(request, ErrorCode.TOKEN_INVALID);
-        }
-
-        catch (UnsupportedJwtException e) {
-            System.out.println("This Token is Unsupported"); // log
-            setErrorCode(request, ErrorCode.TOKEN_INVALID);
-        }
-
-        catch (IllegalArgumentException e) {
-            System.out.println("Token is Illegal"); // log
-            setErrorCode(request, ErrorCode.TOKEN_INVALID);
-        }
-
-        catch (Exception e) {
-            System.out.println("Any Exception"); // log
-            setErrorCode(request, ErrorCode.TOKEN_INVALID);
+            setErrorCode(ErrorCode.TOKEN_EXPIRED);
+            throw e;
+        }catch(JwtAuthenticationException | JwtException e) {
+            System.out.println("Token is Invalid"); // log
+            setErrorCode(ErrorCode.TOKEN_INVALID);
+            throw e;
+        }catch (Exception e) {
+            System.out.println("Unknown Error");
+            setErrorCode(ErrorCode.UNKNOWN);
+            throw e;
         }
 
         filterChain.doFilter(request, response);

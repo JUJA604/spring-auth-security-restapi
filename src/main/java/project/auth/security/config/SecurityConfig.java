@@ -3,6 +3,7 @@ package project.auth.security.config;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -11,13 +12,16 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import project.auth.security.entryPoint.CustomAuthenticationEntryPoint;
+import project.auth.security.handler.CustomAccessDeniedHandler;
 import project.auth.security.security.JwtAuthenticationFilter;
 
 @Configuration
 @RequiredArgsConstructor
+@EnableMethodSecurity(securedEnabled = true, prePostEnabled = true)
 public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
+    private final CustomAccessDeniedHandler customAccessDeniedHandler;
 
     private static final String[] PERMIT_URL = {
             "/api/signup", "/api/auth/login", "/api/auth/refresh", "/api/members"
@@ -48,6 +52,7 @@ public class SecurityConfig {
             // 예외 처리 설정
             .exceptionHandling(exception -> exception
                     .authenticationEntryPoint(customAuthenticationEntryPoint)
+                    .accessDeniedHandler(customAccessDeniedHandler)
             )
             // 인가(Authorization) 설정
             .authorizeHttpRequests(auth -> auth
@@ -58,7 +63,6 @@ public class SecurityConfig {
             )
             // UsernamePasswordAuthenticationFilter 전에 JWT 인증 필터 삽입
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
-
 
         // 설정 완료된 필터 체인 반환
         return http.build();
